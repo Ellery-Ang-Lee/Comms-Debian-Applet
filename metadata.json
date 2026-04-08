@@ -1,0 +1,7 @@
+{
+  "uuid": "comms@user",
+  "name": "Comms",
+  "description": "Websocket communications between clients",
+  "version": "1.0",
+  "max-instances": "1"
+}
