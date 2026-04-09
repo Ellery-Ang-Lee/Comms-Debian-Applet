@@ -1,7 +1,10 @@
 import asyncio
 import websockets
+import ssl
 
-#if you want to modify this for encryption or something, go ahead
+#encryption stuff
+ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+ssl_context.load_cert_chain('cert.pem', 'key.pem')
 
 clients = set()
 async def handler(websocket):
@@ -25,7 +28,7 @@ async def handler(websocket):
 
 async def main():
     print("Starting server on 0.0.0.0:8765")
-    async with websockets.serve(handler, "0.0.0.0", 8765):
+    async with websockets.serve(handler, "0.0.0.0", 8765, ssl=ssl_context):
         await asyncio.Future() 
 
 asyncio.run(main())

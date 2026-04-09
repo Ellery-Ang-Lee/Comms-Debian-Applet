@@ -6,7 +6,7 @@ const Soup = imports.gi.Soup;
 const GLib = imports.gi.GLib;
 const PopupMenu = imports.ui.popupMenu;
 
-const SERVER = 'ws://172.16.32.19:8765';
+const SERVER = 'wss://172.16.32.19:8765';
 const RECONNECT_SECONDS = 10;
 
 let connected = false;
@@ -47,6 +47,10 @@ class CommsApplet extends Applet.TextApplet {
         }
         this.session = new Soup.Session();
         let message = Soup.Message.new('GET', SERVER);
+
+        this.session.accept_language = null;
+        message.connect('accept-certificate', () => true);
+
         this.session.websocket_connect_async(message, null, null, null, null, (session, res) => {
             try {
                 this._ws = session.websocket_connect_finish(res);
