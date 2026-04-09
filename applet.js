@@ -14,7 +14,7 @@ let connected = false;
 class CommsApplet extends Applet.TextApplet {
     constructor(metadata, orientation, panel_height, instance_id) {
         super(orientation, panel_height, instance_id);
-        this.set_applet_label("Comms (X) ");
+        this.set_applet_label("Comms (-) ");
         this.set_applet_tooltip("Click to Open Comms ");
 
         //The actual menu 
@@ -27,10 +27,15 @@ class CommsApplet extends Applet.TextApplet {
         this.logbox = new St.BoxLayout({ vertical: true, style_class: "applet-log-box" });
         this.menu.box.add(this.logbox);
         //this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this.entry = new St.Entry({ hint_text: "", can_focus: true, style_class: "applet-entry" });
+        this.usernameEntry = new St.Entry({ hint_text: "username", can_focus: true, style_class: "applet-entry applet-username-entry" });
+        this.menu.box.add(this.usernameEntry);
+        this.entry = new St.Entry({ hint_text: "Write a message here...", can_focus: true, style_class: "applet-entry" });
         this.menu.box.add(this.entry);
         let sendItem = new PopupMenu.PopupMenuItem("Send");
-        sendItem.connect('activate', () => this._send());
+        sendItem.connect('activate', (actor, event) => {
+            this._send();
+            return true; 
+        });
         this.menu.addMenuItem(sendItem);
 
         this._ws = null;
@@ -41,7 +46,7 @@ class CommsApplet extends Applet.TextApplet {
         if (connected) {
             return;
         }
-        this.set_applet_label("Comms: ...");
+        this.set_applet_label("Comms (-): ...");
         if (this.session) {
             this.session.abort();
         }
@@ -54,24 +59,24 @@ class CommsApplet extends Applet.TextApplet {
         this.session.websocket_connect_async(message, null, null, null, null, (session, res) => {
             try {
                 this._ws = session.websocket_connect_finish(res);
-                this.set_applet_label("Comms (●) ");
+                this.set_applet_label("Comms (+) ");
                 connected = true;
 
                 this._ws.connect('message', (conn, type, data) => {
-                let text = new TextDecoder().decode(data.get_data());            
-                this._appendMessage(text, "white")
-                this.set_applet_label(`Comms (●): ${text.substring(0, 20)} `);
+                    let msg = JSON.parse(new TextDecoder().decode(data.get_data()));
+                    this._appendMessage(msg.text, msg.color, msg.user);
+                    this.set_applet_label(`Comms (+): ${msg.text.substring(0, 20)} `);
                 });
 
                 this._ws.connect('closed', () => {
                     connected = false;
                     this._ws = null;
-                    this.set_applet_label("Comms (X) ");
+                    this.set_applet_label("Comms (-) ");
                     this._scheduleReconnect();
                 });
             } catch (e) {
                 connected = false;
-                this.set_applet_label("Comms (X) ");
+                this.set_applet_label("Comms (-) ");
                 this._scheduleReconnect();
             }
         });
@@ -86,23 +91,25 @@ class CommsApplet extends Applet.TextApplet {
 
     _send() {
         let text = this.entry.get_text().trim();
+        let user = this.usernameEntry.get_text().trim() || "anonymous";
+        let payload = JSON.stringify({ user: user, text: text, color: "White" });
         if (text && this._ws) {
-            this._ws.send_text(text);
+            this._ws.send_text(payload);
             this.entry.set_text("");
         }
     }
 
-    _appendMessage(text, color, type = "normal") {
+    _appendMessage(text, color, user) {
         let children = this.logbox.get_children();
         if (children.length > 50) {
             this.logbox.remove_child(children[0]);
         }
 
-        let label = new St.Label({ text: text});
-        if (type === "system") {
-            label.set_style(`color: ${color}; font-size: 12px; text-align: left; white-space: pre-wrap; italic: true;`);
+        let label = new St.Label({ text: user + " - " + text});
+        if (user === "SERVER") {
+            label.set_style(`color: ${color}; font-size: 12px; text-align: left; white-space: pre-wrap; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;`);
         } else {
-            label.set_style(`color: ${color}; font-size: 12px; text-align: left; white-space: pre-wrap;`);
+            label.set_style(`color: ${color}; font-size: 12px; text-align: left; white-space: pre-wrap; font-family: monospace;`);
         }
         this.logbox.add_child(label);
     }
