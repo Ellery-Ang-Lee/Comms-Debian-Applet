@@ -7,52 +7,41 @@ import time
 #encryption stuff
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ssl_context.load_cert_chain('cert.pem', 'key.pem')
-import time
 
-#encryption stuff
-ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-ssl_context.load_cert_chain('cert.pem', 'key.pem')
-
-
-#its bad, cry about it
+#its good now, be happy
 async def get_time()-> str:
-    if 9 < time.gmtime().tm_sec: second = time.gmtime().tm_sec; 
-    else: second = f"0{time.gmtime().tm_sec}"
-    if 9 < time.gmtime().tm_min: minute = time.gmtime().tm_min; 
-    else: minute = f"0{time.gmtime().tm_min}"
-    if 9 < time.gmtime().tm_min: hour = time.gmtime().tm_hour; 
-    else: hour = f"0{time.gmtime().tm_hour}"
-    day = time.gmtime().tm_mday
-    month = time.gmtime().tm_mon
-    year = time.gmtime().tm_year
-    return f"{hour}:{minute}:{second} UTC, {day}/{month}/{year}"
+    return time.strftime("%H:%M:%S UTC, %d/%m/%Y", time.gmtime())
     
-
-
-async def log_msg(addr, msg):
-    log = open("./msgLogs.nut","a+")
-
-    log.write(f"""{addr}: "{msg}" @{await get_time()}
-""")
-    log.close
-    
-
-
+async def log_msg(msg):
+    entry = json.loads(msg)
+    entry["time"] = await get_time()
+    with open("./msgLogs.jsonl", "a") as log:
+        log.write(json.dumps(entry) + "\n")
 
 clients = set()
 async def handler(websocket):
     clients.add(websocket)
     addr = websocket.remote_address
     print(f"Client connected: {addr} - {len(clients)} connected")
-    await websocket.send(json.dumps({ "user": "SERVER", "text": f"Client connected: {addr[0]} - {len(clients)} connected", "color": "lightgrey" }))
+    for client in clients:
+        await client.send(json.dumps({ "user": "SERVER", "text": f"Client connected: {addr[0]} - {len(clients)} connected", "color": "lightgrey" }))
+    
+     try:
+         with open("./msgLogs.jsonl", "r") as log:
+             for line in log.readlines()[-10:]:
+                 if line.strip():
+                     await websocket.send(line.strip())
+     except Exception as e:
+         print(f"Error reading log file: {e}")
+
     try:
         async for message in websocket:
             data = json.loads(message)
             print(f"Received from {data['user']}: {data['text']}")
-            await log_msg(addr, message)
-            #for client in clients - {websocket}:
+            await log_msg(message)
             for client in clients:
-                await client.send(f"{addr}: {message} @{await get_time()}")
+                #await client.send(f"{addr}: {message} @{await get_time()}")
+                await client.send(message)
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:

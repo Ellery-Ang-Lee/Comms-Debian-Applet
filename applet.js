@@ -101,7 +101,7 @@ class CommsApplet extends Applet.TextApplet {
 
     _appendMessage(text, color, user) {
         let children = this.logbox.get_children();
-        if (children.length > 50) {
+        if (children.length > 11) {
             this.logbox.remove_child(children[0]);
         }
 
