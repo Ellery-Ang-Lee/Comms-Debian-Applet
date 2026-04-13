@@ -4,6 +4,7 @@ import ssl
 import json
 import time
 
+
 #encryption stuff
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ssl_context.load_cert_chain('cert.pem', 'key.pem')
@@ -17,6 +18,21 @@ async def log_msg(msg):
     entry["time"] = await get_time()
     with open("./msgLogs.jsonl", "a") as log:
         log.write(json.dumps(entry) + "\n")
+        
+btime:str
+async def get_command(command:str)->str:
+    commands:dict = {
+    '/help': """Commands: '/boot_time', '/help'""",
+    '/boot_time': btime, 
+    }
+    try:
+        rstring = commands[command]
+        return json.dumps({ "user": "SERVER", "text": rstring, "color": "lightgray" })
+
+        
+    except KeyError:
+        return json.dumps({ "user": "SERVER", "text": "Invalid Command! Use /help for command list", "color": "yellow" })
+
 
 clients = set()
 async def handler(websocket):
@@ -26,12 +42,12 @@ async def handler(websocket):
     for client in clients:
         await client.send(json.dumps({ "user": "SERVER", "text": f"Client connected: {addr[0]} - {len(clients)} connected", "color": "lightgrey" }))
     
-     try:
+    try:
          with open("./msgLogs.jsonl", "r") as log:
              for line in log.readlines()[-10:]:
                  if line.strip():
                      await websocket.send(line.strip())
-     except Exception as e:
+    except Exception as e:
          print(f"Error reading log file: {e}")
 
     try:
@@ -39,9 +55,14 @@ async def handler(websocket):
             data = json.loads(message)
             print(f"Received from {data['user']}: {data['text']}")
             await log_msg(message)
-            for client in clients:
-                #await client.send(f"{addr}: {message} @{await get_time()}")
-                await client.send(message)
+            test =""
+            test.startswith
+            if data['text'].startswith('/'):
+                await websocket.send(await get_command(data['text']))
+            else:
+                for client in clients:
+                    #await client.send(f"{addr}: {message} @{await get_time()}")
+                    await client.send(message)
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:
@@ -52,6 +73,8 @@ async def handler(websocket):
 
 async def main():
     print("Starting server on 0.0.0.0:8765")
+    global btime
+    btime = await get_time()
     async with websockets.serve(handler, "0.0.0.0", 8765, ssl=ssl_context):
         await serverInput()
         await asyncio.Future() 
